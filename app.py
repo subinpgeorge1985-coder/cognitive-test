@@ -4,30 +4,46 @@ from generator import generate_test
 
 st.set_page_config(page_title="Processing Speed Test", layout="wide")
 
-st.title("Processing Speed Test")
-
 # --------------------------
-# STICKY TIMER STYLE
+# STRONG FIXED TIMER CSS
 # --------------------------
 
 st.markdown("""
 <style>
-#timer-box {
-    position: fixed;
-    top: 10px;
-    right: 20px;
-    background-color: #000000;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 10px;
-    font-size: 18px;
-    z-index: 1000;
+
+/* push content down slightly */
+.block-container {
+    padding-top: 4rem;
 }
+
+/* floating timer */
+.floating-timer {
+    position: fixed;
+    top: 20px;
+    right: 30px;
+    background: #111;
+    color: white;
+    padding: 14px 24px;
+    border-radius: 12px;
+    font-size: 22px;
+    font-weight: bold;
+    z-index: 999999999 !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    border: 2px solid white;
+}
+
+/* make sure Streamlit doesn't cover it */
+header {
+    z-index: 0 !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
+st.title("Processing Speed Test")
+
 # --------------------------
-# SESSION STATE INIT
+# SESSION STATE
 # --------------------------
 
 if "started" not in st.session_state:
@@ -49,9 +65,9 @@ if "submitted" not in st.session_state:
 if not st.session_state.started:
     st.write("### Instructions")
     st.write("""
-    - You have **2 minutes** to complete the test  
-    - Answer as many as you can accurately  
-    - Test will auto-submit when time ends  
+    - You have **2 minutes**
+    - Test auto-submits when time ends
+    - Timer stays visible while scrolling
     """)
 
     if st.button("Start Test"):
@@ -62,34 +78,40 @@ if not st.session_state.started:
     st.stop()
 
 # --------------------------
-# TIMER LOGIC
+# TIMER
 # --------------------------
 
-TOTAL_TIME = 120  # seconds
+TOTAL_TIME = 120
 
 elapsed = time.time() - st.session_state.start_time
 remaining = int(TOTAL_TIME - elapsed)
 
-# Sticky timer display
-if remaining > 0:
-    st.markdown(f"""
-    <div id="timer-box">
-    ⏳ {remaining} sec
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown("""
-    <div id="timer-box">
-    ⏰ Time's up!
-    </div>
-    """, unsafe_allow_html=True)
+if remaining < 0:
+    remaining = 0
 
-test = st.session_state.test
+minutes = remaining // 60
+seconds = remaining % 60
+
+if remaining > 0:
+    timer_html = f"""
+    <div class="floating-timer">
+        ⏳ {minutes:02d}:{seconds:02d}
+    </div>
+    """
+else:
+    timer_html = """
+    <div class="floating-timer">
+        ⏰ Time's Up!
+    </div>
+    """
+
+st.markdown(timer_html, unsafe_allow_html=True)
 
 # --------------------------
 # QUESTIONS
 # --------------------------
 
+test = st.session_state.test
 disabled = remaining <= 0 or st.session_state.submitted
 
 for i, q in enumerate(test):
@@ -104,18 +126,13 @@ for i, q in enumerate(test):
     )
 
 # --------------------------
-# SUBMIT LOGIC
+# SUBMIT
 # --------------------------
 
 submit_clicked = st.button("Submit")
 time_up = remaining <= 0
 
-# --------------------------
-# CALCULATE SCORE (ONLY ONCE)
-# --------------------------
-
 if (submit_clicked or time_up) and not st.session_state.submitted:
-
     st.session_state.submitted = True
 
     score = 0
@@ -129,36 +146,24 @@ if (submit_clicked or time_up) and not st.session_state.submitted:
             if chr(65 + idx) == q["answer"]:
                 score += 1
 
-    # ✅ store results
     st.session_state.score = score
     st.session_state.total = total
     st.session_state.percentage = (score / total) * 100
 
 # --------------------------
-# DISPLAY RESULT (PERSISTENT)
+# RESULT
 # --------------------------
 
 if st.session_state.submitted:
-
-    if remaining <= 0:
-        st.warning("⏰ Time is up! Auto-submitting your test...")
-
-    score = st.session_state.score
-    total = st.session_state.total
-    percentage = st.session_state.percentage
-
-    st.success(f"Your Score: {score}/{total}")
-    st.info(f"Percentage: {percentage:.1f}%")
-
-    if percentage >= 85:
-        st.success("Excellent processing speed")
-    elif percentage >= 65:
-        st.info("Good performance")
-    else:
-        st.warning("Needs improvement")
+    st.success(
+        f"Your Score: {st.session_state.score}/{st.session_state.total}"
+    )
+    st.info(
+        f"Percentage: {st.session_state.percentage:.1f}%"
+    )
 
 # --------------------------
-# AUTO REFRESH TIMER
+# AUTO REFRESH
 # --------------------------
 
 if not st.session_state.submitted:
